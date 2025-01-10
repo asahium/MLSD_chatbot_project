@@ -47,7 +47,7 @@ Replace the sample token with the actual token provided by BotFather on Telegram
 
 ```
 python3 -m venv ~/.env/mlsysdes
-source ~/.env/mlsysdes/bin/activates
+source ~/.env/mlsysdes/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```

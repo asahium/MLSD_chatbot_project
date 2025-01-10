@@ -99,3 +99,6 @@ This script will:
 2. Start a conversation by typing /start.
 3. Send a photo of a product to the bot.
 	- The bot will generate an embedding for your image, compare it with the existing product embeddings, and respond with the closest match (product name, price, and URL).
+
+
+[System Design Document](https://docs.google.com/document/d/1PlPbCr-MtFkphSmd9_Bjzr0lRfhoxdd98w7je5qb9N0/edit?tab=t.0#heading=h.cf2cgxdiggmr)

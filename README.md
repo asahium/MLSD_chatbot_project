@@ -46,7 +46,8 @@ Replace the sample token with the actual token provided by BotFather on Telegram
 3. Setup virtual enviroment and install dependencies
 
 ```
-python3.9 -m venv ~/.env/chatbot
+python3 -m venv ~/.env/mlsysdes
+source ~/.env/mlsysdes/bin/activates
 pip install --upgrade pip
 pip install -r requirements.txt
 ```

@@ -1,6 +1,8 @@
 import os
+import csv
 import logging
 from io import BytesIO
+from datetime import datetime
 
 from telegram import (
     Update,
@@ -24,14 +26,35 @@ logging.basicConfig(
     level=logging.INFO
 )
 
-# In-memory storage for feedback counts (example).
-# In production, consider a database or persistent storage.
-FEEDBACK_STATS = {
-    "thumbs_up": 0,
-    "thumbs_down": 0
-}
+
+def store_feedback(user_id: int, reaction: str, username: str = ""):
+    """
+    Сохраняет реакцию пользователя в локальный CSV-файл data/feedback.csv.
+    Формат записи: [timestamp, user_id, username, reaction].
+    """
+    os.makedirs("data", exist_ok=True)  # На случай, если папки нет
+    feedback_file = os.path.join("data", "feedback.csv")
+    
+    # Открываем файл в режиме "a" (append).
+    file_exists = os.path.isfile(feedback_file)
+    with open(feedback_file, "a", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        # Если файл только что создан и пуст, пишем заголовки
+        if not file_exists or os.path.getsize(feedback_file) == 0:
+            writer.writerow(["timestamp", "user_id", "username", "reaction"])
+        
+        # Пишем новую строку
+        writer.writerow([
+            datetime.now().isoformat(),
+            user_id,
+            username,
+            reaction
+        ])
 
 
+#####################
+# BOT HANDLERS      #
+#####################
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Send a message when the command /start is issued."""
     await update.message.reply_text("Hello! Send me a product image, and I'll try to identify it.")
@@ -43,32 +66,20 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handle images sent by users.
-    1. Download the photo.
-    2. Generate embedding.
-    3. Find the closest matching product.
-    4. Reply with product details + feedback buttons.
-    """
     if not update.message.photo:
         await update.message.reply_text("No photo detected. Please send a valid image.")
         return
 
-    # Get the highest resolution photo
-    photo = update.message.photo[-1]
+    photo = update.message.photo[-1]  # самое большое фото
     file = await context.bot.get_file(photo.file_id)
 
-    # Download as BytesIO
     photo_bytes = BytesIO()
     await file.download_to_memory(photo_bytes)
-    photo_bytes.seek(0)  # Rewind the file pointer
+    photo_bytes.seek(0)
 
-    # Get embedding
     user_embedding = get_image_embedding(photo_bytes)
 
-    # Find closest product
     results = find_closest_product(user_embedding, top_k=1)
-
     if len(results) == 0:
         await update.message.reply_text("Sorry, I couldn't find a match in the database.")
         return
@@ -81,7 +92,6 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"(Similarity Score: {best_match['similarity']:.2f})"
     )
 
-    # Create inline keyboard with thumbs up/down
     keyboard = [
         [
             InlineKeyboardButton("👍", callback_data="feedback_up"),
@@ -90,44 +100,44 @@ async def handle_image(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Reply with product details + feedback buttons
     await update.message.reply_text(
-        reply_text, 
-        parse_mode="Markdown", 
+        reply_text,
+        parse_mode="Markdown",
         reply_markup=reply_markup
     )
 
 
 async def feedback_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """
-    Handles the callback data for the inline keyboard feedback buttons.
-    """
     query = update.callback_query
-    await query.answer()  # Acknowledge the callback to Telegram
+    user = query.from_user
+    await query.answer()  # подтверждение телеграму, что колбэк обработан
 
     if query.data == "feedback_up":
-        FEEDBACK_STATS["thumbs_up"] += 1
-        await query.edit_message_text(
-            text=f"Thanks for the feedback!\nCurrent stats:\n👍: {FEEDBACK_STATS['thumbs_up']} | 👎: {FEEDBACK_STATS['thumbs_down']}"
+        store_feedback(
+            user_id=user.id,
+            reaction="thumbs_up",
+            username=user.username or ""
         )
+        await query.message.reply_text("Thanks for your feedback (Thumbs Up)!")
+
     elif query.data == "feedback_down":
-        FEEDBACK_STATS["thumbs_down"] += 1
-        await query.edit_message_text(
-            text=f"Thanks for the feedback!\nCurrent stats:\n👍: {FEEDBACK_STATS['thumbs_up']} | 👎: {FEEDBACK_STATS['thumbs_down']}"
+        store_feedback(
+            user_id=user.id,
+            reaction="thumbs_down",
+            username=user.username or ""
         )
+        await query.message.reply_text("Thanks for your feedback (Thumbs Down)!")
 
 
 def run_bot():
-    """Run the Telegram bot."""
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(MessageHandler(filters.PHOTO, handle_image))
-    # Add a callback query handler for feedback buttons
     application.add_handler(CallbackQueryHandler(feedback_callback))
 
-    # Start the bot
+    # Стартуем бота
     application.run_polling()
 
 

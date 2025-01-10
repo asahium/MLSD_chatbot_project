@@ -38,7 +38,7 @@ cd MLSD_chatbot_project
 Create a file named .env in the project root:
 
 ```
-TELEGRAM_TOKEN=123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+TELEGRAM_TOKEN=<telegram-bot-token>
 ```
 
 Replace the sample token with the actual token provided by BotFather on Telegram. Alternatively, you can hard-code your token in src/config.py if you prefer not to use .env.
